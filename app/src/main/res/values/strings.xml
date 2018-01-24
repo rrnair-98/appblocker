@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">AppBlocker</string>
+    <string name="blocked">This app has been blocked</string>
+</resources>
