@@ -32,7 +32,7 @@
         <receiver android:name=".core.MyBroadcastReceiver">
             <intent-filter>
                 <action android:name="android.intent.action.REBOOT"/>
-                <action android:name="restartService"/>
+                <action android:name="com.creeps.appblocker.RESTART_SERVICE"/>
             </intent-filter>
         </receiver>
 

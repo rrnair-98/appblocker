@@ -22,7 +22,6 @@ import static android.content.Context.USAGE_STATS_SERVICE;
  * Created by rohan on 15/1/18.
  * A Singleton Handler Thread, to be used by the service.
  */
-
 public class ProcessLister extends HandlerThread implements Handler.Callback,ProcessListerConstants{
     private Context mContext;
     private Runnable mRunnable;
@@ -51,7 +50,7 @@ public class ProcessLister extends HandlerThread implements Handler.Callback,Pro
                         processListerCallback.call(currentPackageName);
 
                 }
-                reque();
+                this.reque();
             }
 
             private void reque(){
@@ -107,7 +106,6 @@ public class ProcessLister extends HandlerThread implements Handler.Callback,Pro
                 for(UsageStats usageStats:stats){
                     map.put(usageStats.getLastTimeUsed(),usageStats);
 
-                    Log.d("usage",usageStats.getPackageName());
                 }
                 if(!map.isEmpty()){
                     x=map.get(map.lastKey()).getPackageName();

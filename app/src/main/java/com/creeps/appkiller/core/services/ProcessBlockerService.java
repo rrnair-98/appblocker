@@ -4,12 +4,14 @@ import android.app.Service;
 import android.content.Intent;
 import android.os.Binder;
 import android.os.IBinder;
+import android.provider.ContactsContract;
 import android.support.annotation.IntDef;
 import android.support.annotation.Nullable;
 import android.util.Log;
 
 import com.creeps.appkiller.BlockedAppActivity;
 import com.creeps.appkiller.core.MyBroadcastReceiver;
+import com.creeps.appkiller.core.services.model.Profile;
 import com.creeps.appkiller.core.services.thread.ProcessLister;
 import com.creeps.appkiller.core.services.thread.ProcessListerCallback;
 
@@ -17,30 +19,35 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 
-import static android.content.ContentValues.TAG;
 
 /**
  * Created by rohan on 15/1/18.
  */
 
-public class ProcessBlockerService extends Service implements ProcessListerCallback,SharedPreferenceHandler.SharedPreferenceHandlerConstants,SharedPreferenceHandler.SharedPreferencesCallback {
-
-
+public class ProcessBlockerService extends Service implements ProcessListerCallback,ActiveProfileCallback{
     private final static String THREAD_NAME="ProcessHandler";
     private final IBinder mBinder= new LocalBinder();
     public final static String BLACKLIST_APP="blacklistedApp";
-
+    private Profile currentlyActiveProfile;
+    private static final String TAG="ProcessBlockerService";
+    /* Will hold a reference to a Profile and check its contents for the currently running app.*/
     private static List<String> mBlackList;
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
 
-        SharedPreferenceHandler preferenceHandler=SharedPreferenceHandler.getInstance(this.getApplicationContext());
-        preferenceHandler.setSharedPreferencesCallback(this);
-        this.initList(preferenceHandler.get(BLACKLIST));
+
+
         ProcessLister processLister=ProcessLister.prepareInstance(this.getApplicationContext(),THREAD_NAME);
         processLister.setProcessListerCallback(this);
         if (processLister.getState() == Thread.State.NEW){
             processLister.start();
+        }
+        DatabaseHandler ref=DatabaseHandler.getInstance(this.getApplicationContext());
+        ref.setActiveCallback(this);
+        this.initCurrentlyActiveProfile();
+        if(currentlyActiveProfile!=null) {
+            Log.d(TAG, currentlyActiveProfile.toString());
+
         }
         return START_STICKY;
     }
@@ -68,10 +75,14 @@ public class ProcessBlockerService extends Service implements ProcessListerCallb
 
 
     @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        //super.onTaskRemoved(rootIntent);
+        this.tryToReinitService();
+    }
+
+    @Override
     public void onDestroy(){
-        /* ToDO restart the service ie send a broadcast*/
-        this.sendBroadcast(new Intent(MyBroadcastReceiver.RESTART_SERVICE));
-        Log.d(TAG,"service being destroyed and prolly restarted");
+
     }
 
 
@@ -91,8 +102,10 @@ public class ProcessBlockerService extends Service implements ProcessListerCallb
         Log.d(TAG,"received "+currentPackageName);
 
         if(mBlackList!=null) Log.d(TAG,"list "+mBlackList.toString());
-        /*Log.d(TAG,SharedPreferenceHandler.getInstance(this.getApplicationContext()).get(BLACKLIST));*/
-        if(mBlackList!=null && mBlackList.contains(currentPackageName)){
+
+        if(currentlyActiveProfile!=null )
+
+        if(currentlyActiveProfile!=null && currentlyActiveProfile.contains(currentPackageName)){
             Log.d(TAG,"blockedActivityIntent");
             Intent blockeActivityIntent=new Intent(this, BlockedAppActivity.class);
                     blockeActivityIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -101,13 +114,25 @@ public class ProcessBlockerService extends Service implements ProcessListerCallb
         }
     }
 
-    /* Overrding SharedPreferenceCallback*/
+
+
+    /* Overriding ActiveProfileCallback
+    * This means that the databaseHandler has set new active profile*/
     @Override
-    public void latestAddition(String key){
-        /* todo reinit the blacklist if new strings were added*/
-        Log.d(TAG,"latestAddition");
-        if(key.equals(BLACKLIST))
-            initList(SharedPreferenceHandler.getInstance(this.getApplicationContext()).get(BLACKLIST));
+    public void profileNotify(){
+
+    }
+    private void initCurrentlyActiveProfile(){
+        DatabaseHandler ref=DatabaseHandler.getInstance(this.getApplicationContext());
+        this.currentlyActiveProfile=ref.getCurrentlyActiveProfile();
+        if(currentlyActiveProfile!=null)
+            this.currentlyActiveProfile.setPackages(ref.readAllPackages(this.currentlyActiveProfile.getId()));
+
+    }
+    private void tryToReinitService(){
+         /* ToDO restart the service ie send a broadcast*/
+        this.sendBroadcast(new Intent(MyBroadcastReceiver.RESTART_SERVICE));
+        Log.d(TAG,"service being destroyed and prolly restarted");
     }
 
 }
